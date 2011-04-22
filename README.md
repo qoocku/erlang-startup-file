@@ -12,7 +12,7 @@ This sweet startup file does the following:
    name which is used as the node name prefix.
 3. Connects the brand new named node to the "toolbar" node.
 
-Note that in order to do (1) the "epmd" must be also started which this script do
+Note that in order to do (1) the "epmd" must be also started which this script does
 automagically for me. Sweet.
 
 Enjoy.
