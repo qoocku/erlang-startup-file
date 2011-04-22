@@ -63,7 +63,7 @@ end.
 
 case MyName of
   undefined ->
-    io:format("Quiting shamlessly.~n");
+    io:format("Quiting shamelessly.~n");
   MyName ->
     % check if toolbar is available
     case net_adm:ping('toolbar@127.0.0.1') of
