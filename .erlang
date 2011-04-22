@@ -1,0 +1,88 @@
+%%% My great Erlang Development startup file:
+%%% 1) launches toolbar if needed 
+%%% 2) connect the node to it givin' them a name automagically
+
+CheckEpmd = fun 
+              (N, N, Self) ->
+                io:format("Too many tries to connect to epmd. Quitting~n"),
+                halt(1);
+              (M, N, Self) ->
+                case erl_epmd:names() of
+                  {ok, _} -> ok; % the epmd is up and running
+                  _ when M =:= 0 ->
+                    os:cmd("epmd -daemon"),
+                    Self(M+1, N, Self);
+                  _ ->
+                    timer:sleep(1),
+                    Self(M+1, N, Self)
+                end
+            end.         
+
+ChooseName = fun
+               (M, N, Name, undefined, Self) ->
+                 {ok, Names} = erl_epmd:names(),
+                 Names0 = [N || {N, _} <- Names, N =/= "toolbar"],
+                 Self(M, N, Name, Names0, Self);
+               (M, N, Name, Names, Self) when M =:= N + 1 ->
+                 io:format("I cannot find a name for this node.~n"),
+                 undefined;
+               (M, N, Name, Names, Self) ->
+                 Propose = Name ++ integer_to_list(M),
+                 case lists:member(Propose, Names) of
+                   true -> Self(M+1, N, Name, Names, Self);
+                   false -> Propose
+                 end
+             end.
+
+% check if the node has a name
+HasName = case node() of
+            'nonode@nohost' -> false;
+            _               -> true
+          end.
+% if not set it trying to run epmd first if needed
+MyName = case HasName of
+  true -> ok;
+  false ->
+    CheckEpmd(0, 100, CheckEpmd),
+    % ok, the epmd is up and running, so let's choose a name for THIS node
+    Prefix = case os:getenv("HOME") of
+               false -> case os:getenv("USER") of
+                          false -> "my_dev_";
+                          User  -> User
+                        end;
+               Home  -> filename:basename(Home)
+             end,
+    case ChooseName(1, 256, Prefix, undefined, ChooseName) of
+      undefined ->
+        undefined;
+      N ->
+         {ok, _} = net_kernel:start([Name = list_to_atom(N ++ "@127.0.0.1"), longnames]),
+         Name
+    end
+end.
+
+case MyName of
+  undefined ->
+    io:format("Quiting shamlessly.~n");
+  MyName ->
+    % check if toolbar is available
+    case net_adm:ping('toolbar@127.0.0.1') of
+      pong -> ok;
+      pang -> % start it
+        os:cmd("erl -name toolbar@127.0.0.1 -s toolbar -noshell -noinput -detached")
+    end,
+    % wait till its alive
+    CheckToolbar = fun
+                 (0, Self) ->
+                   io:format("Cannot connect to a toolbar node~n");
+                 (N, Self) ->
+                    case net_adm:ping('toolbar@127.0.0.1') of
+                      pong -> ok;
+                      pang -> 
+                        timer:sleep(1),
+                        Self(N-1, Self)
+                    end
+                end,
+    CheckToolbar(500, CheckToolbar)
+end.
+
