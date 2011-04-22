@@ -63,21 +63,27 @@ end.
 
 case MyName of
   undefined ->
-    io:format("Quiting shamelessly.~n");
+    io:format("Quiting shamlessly.~n");
   MyName ->
     % check if toolbar is available
     case net_adm:ping('toolbar@127.0.0.1') of
       pong -> ok;
       pang -> % start it
-        os:cmd("erl -name toolbar@127.0.0.1 -s toolbar -noshell -noinput -detached")
+        os:cmd("erl -name toolbar@127.0.0.1 -s toolbar -detached")
     end,
     % wait till its alive
     CheckToolbar = fun
                  (0, Self) ->
                    io:format("Cannot connect to a toolbar node~n");
                  (N, Self) ->
-                    case net_adm:ping('toolbar@127.0.0.1') of
-                      pong -> ok;
+                    case net_adm:ping(TN = 'toolbar@127.0.0.1') of
+                      pong ->
+			% make sure that the GUI is up and running
+			R = rpc:call(TN, erlang, registered, []),
+                        case lists:member(toolbar, R) of
+                          true -> ok;
+                          false -> rpc:call(TN, toolbar, start, [])
+                        end;
                       pang -> 
                         timer:sleep(1),
                         Self(N-1, Self)
