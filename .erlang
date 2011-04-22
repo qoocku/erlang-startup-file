@@ -45,12 +45,12 @@ MyName = case HasName of
   false ->
     CheckEpmd(0, 100, CheckEpmd),
     % ok, the epmd is up and running, so let's choose a name for THIS node
-    Prefix = case os:getenv("HOME") of
-               false -> case os:getenv("USER") of
+    Prefix = case os:getenv("USER") of
+               false -> case os:getenv("HOME") of
                           false -> "my_dev_";
-                          User  -> User
+                          Home  -> filename:basename(Home)
                         end;
-               Home  -> filename:basename(Home)
+               User -> User
              end,
     case ChooseName(1, 256, Prefix, undefined, ChooseName) of
       undefined ->
